@@ -41,7 +41,8 @@ if app.config.get('ENV') == "development" and app.config['USE_NGROK']:
 # Connect to Twilio API
 account_sid = os.getenv('TWILIO_ACCOUNT_SID')
 auth_token = os.getenv('TWILIO_AUTH_TOKEN')
-outgoing_phone = os.getenv('TWILIO_PHONE_NUMBER')
+incoming_number = "+17205821400"
+outgoing_number = os.getenv('TWILIO_PHONE_NUMBER')
 client = Client(account_sid, auth_token)
 
 """Route definitions"""
@@ -54,13 +55,13 @@ def index():
 
 @app.route('/sms', methods=['GET', 'POST'])
 def get_availability():
-    if request.method == 'POST':
-        response = MessagingResponse()
-        response.message(
-            to="+17205821400",
-            from_=outgoing_phone,
-            body="This is a test of the emergency alert system."
-        )
+    response = MessagingResponse()
+
+    response.message(
+        to=incoming_number,
+        from_=outgoing_number,
+        body="Fetching the next 3 available time slots ..."
+    )
 
     return str(response)
 
