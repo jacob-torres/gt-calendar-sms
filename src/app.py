@@ -2,6 +2,7 @@
 import os
 import sys
 
+from calendly import Calendly
 from dotenv import load_dotenv
 from flask import Flask, request
 from twilio.rest import Client
@@ -39,11 +40,18 @@ if app.config.get('ENV') == "development" and app.config['USE_NGROK']:
     app.config['BASE_URL'] = public_url
 
 # Connect to Twilio API
-account_sid = os.getenv('TWILIO_ACCOUNT_SID')
-auth_token = os.getenv('TWILIO_AUTH_TOKEN')
-incoming_number = "+17205821400"
-outgoing_number = os.getenv('TWILIO_PHONE_NUMBER')
-client = Client(account_sid, auth_token)
+# Possibly removing because the Twilio client may not be used
+twilio_account_sid = os.getenv('TWILIO_ACCOUNT_SID')
+twilio_auth_token = os.getenv('TWILIO_AUTH_TOKEN')
+twilio_incoming_number = "+17205821400"
+twilio_outgoing_number = os.getenv('TWILIO_PHONE_NUMBER')
+twilio_client = Client(twilio_account_sid, twilio_auth_token)
+
+# Connect to Calendly API
+calendly_access_token = os.getenv('CALENDLY_ACCESS_TOKEN')
+calendly_user_uri = os.getenv('CALENDLY_USER_URI')
+calendly = Calendly(calendly_access_token)
+calendly.list_events(calendly_user_uri)
 
 """Route definitions"""
 
@@ -66,8 +74,40 @@ def get_availability():
     return str(response)
 
 
-# Store the sender's number in a variable
 # Access Calendly calendar and store the last 3 empty time slots in a variable
+def get_calendly_events():
+    # Hard-coded events below
+    # Contain only relevant properties
+    # events = calendly.list_events(count=3)
+    events = [
+        {
+                'end_time': '2022-10-05T15:00:00.000000Z',
+                'start_time': '2022-10-05T14:00:00.000000Z',
+                'status': 'active',
+                'uri': 'https://api.calendly.com/scheduled_events/0d8a01bf-4f5e-4c30-ad21-59f82a6c5252'
+        },
+
+        {
+                'end_time': '2022-10-06T18:00:00.000000Z',
+                'start_time': '2022-10-05T17:00:00.000000Z',
+                'status': 'active',
+                'uri': 'https://api.calendly.com/scheduled_events/0d8a01bf-4f5e-4c30-ad21-59f82a6c5252'
+        },
+
+        {
+                'end_time': '2022-10-05T20:00:00.000000Z',
+                'start_time': '2022-10-07T22:00:00.000000Z',
+                'status': 'active',
+                'uri': 'https://api.calendly.com/scheduled_events/0d8a01bf-4f5e-4c30-ad21-59f82a6c5252'
+        }
+    ]
+
+    # Define empty time slots
+    
+    
+    return
+
+
 # Send the time slots to the sender in an SMS message
 # Message the sender to reply with 1, 2, or 3 to select a time slot
 #  The sender's selection is stored in a variable once received
