@@ -6,6 +6,11 @@ from datetime import datetime, timedelta
 from calendly import Calendly
 from dotenv import load_dotenv
 from flask import Flask, request
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
 
@@ -53,6 +58,14 @@ calendly_access_token = os.getenv('CALENDLY_ACCESS_TOKEN')
 calendly_user_uri = os.getenv('CALENDLY_USER_URI')
 calendly = Calendly(calendly_access_token)
 
+# Connect to Google Calendar API
+scopes = ['https://www.googleapis.com/auth/calendar.events']
+try:
+    creds = Credentials.from_authorized_user_file('token.json', scopes)
+    google_calendar_service = build('calendar', 'v3', credentials=creds)
+except HttpError as error:
+    print(error)
+
 """Route definitions"""
 
 # Test route
@@ -63,12 +76,9 @@ def index():
 
 @app.route('/sms', methods=['GET', 'POST'])
 def get_availability():
-    response = MessagingResponse()
-
-    # Get the last 3 available time slots
+    #  Send SMS with the time slots
     time_slots = str(get_time_slots())
-
-    # Send the time slots to the sender in an SMS message
+    response = MessagingResponse()
     response_body = f"""
     Your buddy is available during the following times:
 
@@ -135,13 +145,13 @@ def get_time_slots():
 
     for event in events:
         # Format each event start and end times as datetime objects
-        # and subtract 6 hours for mountain timezone
+        # and subtract 4 hours for Eastern timezone
         start_time = datetime.strptime(
             event['start_time'][:dt_endpoint], dt_format
-        ) - timedelta(hours=6)
+        ) - timedelta(hours=4)
         end_time = datetime.strptime(
             event['end_time'][:dt_endpoint], dt_format
-        ) - timedelta(hours=6)
+        ) - timedelta(hours=4)
 
         if (start_time - prev_time).seconds / 3600 >= 3.0:
             new_time = start_time - timedelta(hours=3)
@@ -151,10 +161,9 @@ def get_time_slots():
             }
             time_slots.append(slot)
 
-            # Remove time slots which are very early or late
+            # Only include time slots between 8:00 and 22:00
             slot_start = datetime.strptime(slot['from'], dt_format)
-            slot_end = datetime.strptime(slot['to'], dt_format)
-            if slot_start.hour < 8 or slot_end.hour > 22:
+            if slot_start.hour < 8 or slot_start.hour > 22:
                 time_slots.remove(slot)
 
         prev_time = end_time
@@ -164,6 +173,53 @@ def get_time_slots():
     return time_slots
 
 
+# Create a new event in the Google calendar in the selected time slot
+def create_google_calendar_event(time_slot):
+    # Convert time slot start and end into datetime objects
+    slot_start = datetime.strptime(time_slot['from'], dt_format)
+    slot_end = datetime.strptime(time_slot['to'], dt_format)
+    new_event = {
+        'description': 'Hang Out',
+        'start': {
+            'dateTime': time_slot['from']
+        },
+        'end': {
+            'dateTime': time_slot['to']
+        }
+    }
+
+    # Get existing Google calendar events
+    events_result = google_calendar_service.events().list(calendarId='primary')
+    events = events_result.get('items', [])
+
+    if not events:
+        google_calendar_service.events().insert(
+            calendarId='primary',
+            body=new_event
+        ).execute()
+        return True
+
+    else:
+        for event in events:
+            start = event['start'].get('dateTime', event['start'].get('date'))
+            end = event['end'].get('dateTime', event['end'].get('date'))
+
+            dt_format = '%Y-%m-%dT%H:%M:%S'
+            event_start = datetime.strptime(start, dt_format)
+            event_end = datetime.strptime(end, dt_format)
+
+            # Check that the selected time slot doesn't conflict with the event
+            if slot_start.hour > event_end.hour or slot_end.hour < event_start.hour:
+                google_calendar_service.events().insert(
+                    calendarId='primary',
+                    body=new_event
+                ).execute()
+                return True
+
+    return False
+
+
+# TODO:
 # Message the sender to reply with 1, 2, or 3 to select a time slot
 #  The sender's selection is stored in a variable once received
 # The Google calendar is accessed and the time slot is checked for availability

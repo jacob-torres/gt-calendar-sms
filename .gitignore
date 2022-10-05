@@ -170,5 +170,8 @@ cython_debug/
 # End of https://www.toptal.com/developers/gitignore/api/flask
 
 ### Google Calendar API ###
-# OAuth2 credentials file
+# OAuth2 credential files
 credentials.json
+token.json
+*/credentials.json
+*/token.json
