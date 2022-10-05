@@ -52,7 +52,6 @@ twilio_client = Client(twilio_account_sid, twilio_auth_token)
 calendly_access_token = os.getenv('CALENDLY_ACCESS_TOKEN')
 calendly_user_uri = os.getenv('CALENDLY_USER_URI')
 calendly = Calendly(calendly_access_token)
-calendly.list_events(calendly_user_uri)
 
 """Route definitions"""
 
@@ -66,20 +65,30 @@ def index():
 def get_availability():
     response = MessagingResponse()
 
+    # Get the last 3 available time slots
+    time_slots = str(get_time_slots())
+
+    # Send the time slots to the sender in an SMS message
+    response_body = f"""
+    Your buddy is available during the following times:
+
+    {time_slots}
+    """
+
     response.message(
-        to=incoming_number,
-        from_=outgoing_number,
-        body="Fetching the next 3 available time slots ..."
+        to=twilio_incoming_number,
+        from_=twilio_outgoing_number,
+        body=response_body
     )
 
     return str(response)
 
 
-# Access Calendly calendar and store the last 3 empty time slots in a variable
-def get_calendly_events():
-    # Hard-coded events below
-    # Contain only relevant properties
-    # events = calendly.list_events(count=3)
+# Access Calendly calendar and store the last 3 empty time slots
+def get_time_slots():
+    # Events are hard-coded below which contain only relevant properties
+    # When there are events in Calendly, the code will work the same
+    # events = calendly.list_events(calendly_user_uri)
     events = [
         {
                 'end_time': '2022-10-05T15:00:00.000000Z',
@@ -92,13 +101,28 @@ def get_calendly_events():
         },
 
         {
-                'end_time': '2022-10-05T20:02:00.000000Z',
+                'end_time': '2022-10-05T22:00:00.000000Z',
                 'start_time': '2022-10-05T21:00:00.000000Z',
+        },
+
+        {
+                'end_time': '2022-10-06T02:00:00.000000Z',
+                'start_time': '2022-10-06T01:00:00.000000Z',
         },
 
         {
                 'end_time': '2022-10-06T15:00:00.000000Z',
                 'start_time': '2022-10-06T14:00:00.000000Z',
+        },
+
+        {
+                'end_time': '2022-10-06T20:00:00.000000Z',
+                'start_time': '2022-10-06T18:00:00.000000Z',
+        },
+
+        {
+                'end_time': '2022-10-07T00:00:00.000000Z',
+                'start_time': '2022-10-06T23:00:00.000000Z',
         }
     ]
 
@@ -121,18 +145,25 @@ def get_calendly_events():
 
         if (start_time - prev_time).seconds / 3600 >= 3.0:
             new_time = start_time - timedelta(hours=3)
-            slot = "{} until {}".format(
-                new_time.strftime(dt_format),
-                start_time.strftime(dt_format)
-            )
+            slot = {
+                'from': new_time.strftime(dt_format),
+                'to': start_time.strftime(dt_format)
+            }
             time_slots.append(slot)
+
+            # Remove time slots which are very early or late
+            slot_start = datetime.strptime(slot['from'], dt_format)
+            slot_end = datetime.strptime(slot['to'], dt_format)
+            if slot_start.hour < 8 or slot_end.hour > 22:
+                time_slots.remove(slot)
 
         prev_time = end_time
 
+    # Get last 3 time slots
+    time_slots = time_slots[-3:]
     return time_slots
 
 
-# Send the time slots to the sender in an SMS message
 # Message the sender to reply with 1, 2, or 3 to select a time slot
 #  The sender's selection is stored in a variable once received
 # The Google calendar is accessed and the time slot is checked for availability
