@@ -60,21 +60,8 @@ calendly = Calendly(calendly_access_token)
 
 # Connect to Google Calendar API
 scopes = ['https://www.googleapis.com/auth/calendar.events']
-# Look for token file, or create if it does not exist
-if os.path.exists('token.json'):
-    creds = Credentials.from_authorized_user_file('token.json', scopes)
-if not creds or not creds.valid:
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-    else:
-        flow = InstalledAppFlow.from_client_secrets_file('credentials.json', scopes)
-        creds = flow.run_local_server(port=0)
-
-    # Save credentials for the next run
-    with open('token.json', 'w') as token:
-        token.write(creds.to_json())
-
 try:
+    creds = Credentials.from_authorized_user_file('token.json', scopes)
     google_calendar_service = build('calendar', 'v3', credentials=creds)
 except HttpError as error:
     print(error)
@@ -89,12 +76,9 @@ def index():
 
 @app.route('/sms', methods=['GET', 'POST'])
 def get_availability():
-    response = MessagingResponse()
-
-    # Get the last 3 available time slots
+    #  Send SMS with the time slots
     time_slots = str(get_time_slots())
-
-    # Send the time slots to the sender in an SMS message
+    response = MessagingResponse()
     response_body = f"""
     Your buddy is available during the following times:
 
@@ -161,13 +145,13 @@ def get_time_slots():
 
     for event in events:
         # Format each event start and end times as datetime objects
-        # and subtract 6 hours for mountain timezone
+        # and subtract 4 hours for Eastern timezone
         start_time = datetime.strptime(
             event['start_time'][:dt_endpoint], dt_format
-        ) - timedelta(hours=6)
+        ) - timedelta(hours=4)
         end_time = datetime.strptime(
             event['end_time'][:dt_endpoint], dt_format
-        ) - timedelta(hours=6)
+        ) - timedelta(hours=4)
 
         if (start_time - prev_time).seconds / 3600 >= 3.0:
             new_time = start_time - timedelta(hours=3)
