@@ -6,6 +6,11 @@ from datetime import datetime, timedelta
 from calendly import Calendly
 from dotenv import load_dotenv
 from flask import Flask, request
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
 
@@ -52,6 +57,27 @@ twilio_client = Client(twilio_account_sid, twilio_auth_token)
 calendly_access_token = os.getenv('CALENDLY_ACCESS_TOKEN')
 calendly_user_uri = os.getenv('CALENDLY_USER_URI')
 calendly = Calendly(calendly_access_token)
+
+# Connect to Google Calendar API
+scopes = ['https://www.googleapis.com/auth/calendar.events']
+# Look for token file, or create if it does not exist
+if os.path.exists('token.json'):
+    creds = Credentials.from_authorized_user_file('token.json', scopes)
+if not creds or not creds.valid:
+    if creds and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+    else:
+        flow = InstalledAppFlow.from_client_secrets_file('credentials.json', scopes)
+        creds = flow.run_local_server(port=0)
+
+    # Save credentials for the next run
+    with open('token.json', 'w') as token:
+        token.write(creds.to_json())
+
+try:
+    google_calendar_service = build('calendar', 'v3', credentials=creds)
+except HttpError as error:
+    print(error)
 
 """Route definitions"""
 
@@ -151,10 +177,9 @@ def get_time_slots():
             }
             time_slots.append(slot)
 
-            # Remove time slots which are very early or late
+            # Only include time slots between 8:00 and 22:00
             slot_start = datetime.strptime(slot['from'], dt_format)
-            slot_end = datetime.strptime(slot['to'], dt_format)
-            if slot_start.hour < 8 or slot_end.hour > 22:
+            if slot_start.hour < 8 or slot_start.hour > 22:
                 time_slots.remove(slot)
 
         prev_time = end_time
@@ -164,6 +189,53 @@ def get_time_slots():
     return time_slots
 
 
+# Create a new event in the Google calendar in the selected time slot
+def create_google_calendar_event(time_slot):
+    # Convert time slot start and end into datetime objects
+    slot_start = datetime.strptime(time_slot['from'], dt_format)
+    slot_end = datetime.strptime(time_slot['to'], dt_format)
+    new_event = {
+        'description': 'Hang Out',
+        'start': {
+            'dateTime': time_slot['from']
+        },
+        'end': {
+            'dateTime': time_slot['to']
+        }
+    }
+
+    # Get existing Google calendar events
+    events_result = google_calendar_service.events().list(calendarId='primary')
+    events = events_result.get('items', [])
+
+    if not events:
+        google_calendar_service.events().insert(
+            calendarId='primary',
+            body=new_event
+        ).execute()
+        return True
+
+    else:
+        for event in events:
+            start = event['start'].get('dateTime', event['start'].get('date'))
+            end = event['end'].get('dateTime', event['end'].get('date'))
+
+            dt_format = '%Y-%m-%dT%H:%M:%S'
+            event_start = datetime.strptime(start, dt_format)
+            event_end = datetime.strptime(end, dt_format)
+
+            # Check that the selected time slot doesn't conflict with the event
+            if slot_start.hour > event_end.hour or slot_end.hour < event_start.hour:
+                google_calendar_service.events().insert(
+                    calendarId='primary',
+                    body=new_event
+                ).execute()
+                return True
+
+    return False
+
+
+# TODO:
 # Message the sender to reply with 1, 2, or 3 to select a time slot
 #  The sender's selection is stored in a variable once received
 # The Google calendar is accessed and the time slot is checked for availability

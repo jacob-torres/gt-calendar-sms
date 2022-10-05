@@ -1,4 +1,3 @@
-# https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=829776857804-24hvjr7rk4r628k3u35irv2agvscrdde.apps.googleusercontent.com&redirect_uri=http%3A%2F%2Flocalhost%3A65228%2F&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.events&state=OgDhi1CXos28W3UbzBYsVjqrRNuB78&access_type=offline
 from __future__ import print_function
 
 import datetime
