@@ -1,6 +1,7 @@
 """Driver Flask application."""
 import os
 import sys
+from datetime import datetime, timedelta
 
 from calendly import Calendly
 from dotenv import load_dotenv
@@ -83,29 +84,52 @@ def get_calendly_events():
         {
                 'end_time': '2022-10-05T15:00:00.000000Z',
                 'start_time': '2022-10-05T14:00:00.000000Z',
-                'status': 'active',
-                'uri': 'https://api.calendly.com/scheduled_events/0d8a01bf-4f5e-4c30-ad21-59f82a6c5252'
         },
 
         {
-                'end_time': '2022-10-06T18:00:00.000000Z',
+                'end_time': '2022-10-05T18:00:00.000000Z',
                 'start_time': '2022-10-05T17:00:00.000000Z',
-                'status': 'active',
-                'uri': 'https://api.calendly.com/scheduled_events/0d8a01bf-4f5e-4c30-ad21-59f82a6c5252'
         },
 
         {
-                'end_time': '2022-10-05T20:00:00.000000Z',
-                'start_time': '2022-10-07T22:00:00.000000Z',
-                'status': 'active',
-                'uri': 'https://api.calendly.com/scheduled_events/0d8a01bf-4f5e-4c30-ad21-59f82a6c5252'
+                'end_time': '2022-10-05T20:02:00.000000Z',
+                'start_time': '2022-10-05T21:00:00.000000Z',
+        },
+
+        {
+                'end_time': '2022-10-06T15:00:00.000000Z',
+                'start_time': '2022-10-06T14:00:00.000000Z',
         }
     ]
 
     # Define empty time slots
-    
-    
-    return
+    prev_time = datetime.today()
+    time_slots = []
+    dt_format = '%Y-%m-%dT%H:%M:%S'
+    # The parsable datetime ends at the index of the first '.' character
+    dt_endpoint = events[0]['end_time'].find('.')
+
+    for event in events:
+        # Format each event start and end times as datetime objects
+        # and subtract 6 hours for mountain timezone
+        start_time = datetime.strptime(
+            event['start_time'][:dt_endpoint], dt_format
+        ) - timedelta(hours=6)
+        end_time = datetime.strptime(
+            event['end_time'][:dt_endpoint], dt_format
+        ) - timedelta(hours=6)
+
+        if (start_time - prev_time).seconds / 3600 >= 3.0:
+            new_time = start_time - timedelta(hours=3)
+            slot = "{} until {}".format(
+                new_time.strftime(dt_format),
+                start_time.strftime(dt_format)
+            )
+            time_slots.append(slot)
+
+        prev_time = end_time
+
+    return time_slots
 
 
 # Send the time slots to the sender in an SMS message
