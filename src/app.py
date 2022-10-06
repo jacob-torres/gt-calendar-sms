@@ -41,7 +41,7 @@ if app.config.get('ENV') == "development" and app.config['USE_NGROK']:
     app.config['BASE_URL'] = public_url
 
 # Store Twilio phone numbers
-twilio_incoming_number = "+17205821400"
+twilio_incoming_number = os.getenv('TWILIO_INCOMING_PHONE_NUMBER')
 twilio_outgoing_number = os.getenv('TWILIO_PHONE_NUMBER')
 
 
