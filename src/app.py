@@ -3,7 +3,7 @@ import os
 import sys
 
 from dotenv import load_dotenv
-from flask import Flask, request
+from flask import Flask, Request, session
 from twilio.twiml.messaging_response import MessagingResponse
 
 from .calendly_service import get_time_slots
@@ -56,7 +56,7 @@ def index():
 @app.route('/sms', methods=['GET', 'POST'])
 def get_availability():
     #  Send SMS with the time slots
-    time_slots = str(get_time_slots())
+    time_slots = get_time_slots()
     response = MessagingResponse()
     response_body = f"""
     Your buddy is available during the following times:

@@ -2,8 +2,6 @@
 
 This Flask application sends an SMS message with a list of the 3 next available time slots in a friend's calendar.
 
-The full usecase should include the following:
-
 1. When triggered by an incoming text message, the app fetches up to 20 of the last scheduled events in Calendly.
 2. It then sends an SMS message with the 3 next available times in the calendar:
     * The time slots must be at least 3 hours long.
@@ -23,3 +21,4 @@ The full usecase should include the following:
 * PyCalendly 1.0.0
 * PyNgrok 5.1.0
 * Twilio 7.14.1
+* Twilio CLI (Powershell ) 5.0.0
